@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rotary Hammer — Engineering Simulator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 9999px;
+      background: #3b82f6;
+      cursor: pointer;
+      appearance: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="h-10 w-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shadow-inner">
+        <i data-lucide="hammer" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          Rotary Hammer Mechanism
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">3-Jaw Helical Cam Model</span>
+        </h1>
+        <p class="text-xs text-slate-400">Ø82mm 3-Jaw Cam (15mm Lift) | 4 Gearbox Speeds (140, 240, 295, 507 RPM) | Mohs 4 Calibrated (295 RPM = 5.0 min @ 800mm)</p>
+      </div>
+    </div>
+
+    <!-- Quick action buttons -->
+    <div class="flex items-center gap-2">
+      <button id="btn-export-csv" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition">
+        <i data-lucide="download" class="w-4 h-4"></i>
+        Export CSV
+      </button>
+      <button id="btn-reset-params" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition">
+        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+        Reset
+      </button>
+      <button id="btn-toggle-anim" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-lg shadow-blue-600/30 transition">
+        <i data-lucide="pause" id="anim-icon" class="w-4 h-4"></i>
+        <span id="anim-btn-label">Pause</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <main class="flex-1 p-4 lg:p-6 grid grid-cols-1 xl:grid-cols-12 gap-6 max-w-[1700px] w-full mx-auto">
+
+    <!-- Left Column: Controls (4 cols) -->
+    <section class="xl:col-span-4 flex flex-col gap-5">
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800/80 p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="gauge" class="w-4 h-4 text-blue-400"></i>
+            Gearbox & Spindle Settings
+          </h2>
+          <span class="text-xs text-blue-400 font-mono-num font-semibold" id="gearbox-active-label">Gear 3: 295 RPM</span>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <!-- 4 Gearbox Settings Selector -->
+          <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-slate-300">4-Speed Gearbox Presets:</span>
+              <span class="text-[10px] text-emerald-400 font-mono-num" id="active-gear-rated-power">4.48 kW Rated</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btn-gear-140" class="gear-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-left flex flex-col">
+                <span class="font-bold text-slate-200">140 RPM</span>
+                <span class="text-[10px] text-slate-400">148 Nm (2.17 kW)</span>
+              </button>
+              <button type="button" id="btn-gear-240" class="gear-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-left flex flex-col">
+                <span class="font-bold text-slate-200">240 RPM</span>
+                <span class="text-[10px] text-slate-400">86 Nm (2.16 kW)</span>
+              </button>
+              <button type="button" id="btn-gear-295" class="gear-preset-btn py-1.5 px-2 rounded-lg border border-blue-500/80 bg-blue-500/25 text-blue-400 text-xs font-mono-num font-bold transition text-left flex flex-col shadow-sm">
+                <span class="font-bold text-blue-300 flex items-center justify-between">
+                  295 RPM
+                  <span class="text-[9px] px-1 py-0.2 bg-blue-500/30 rounded text-blue-300">Calibrated</span>
+                </span>
+                <span class="text-[10px] text-blue-400">145 Nm (4.48 kW)</span>
+              </button>
+              <button type="button" id="btn-gear-507" class="gear-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-left flex flex-col">
+                <span class="font-bold text-slate-200">507 RPM</span>
+                <span class="text-[10px] text-slate-400">84 Nm (4.46 kW)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- RPM (Typed & Slider) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-rpm" class="font-medium text-slate-300">Spindle Speed (RPM)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-rpm" min="50" max="3000" step="1" value="295" class="w-20 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-blue-400 font-mono-num text-xs text-right focus:outline-none focus:border-blue-500 font-semibold">
+                <span class="text-slate-400 text-[11px]">RPM</span>
+              </div>
+            </div>
+            <input type="range" id="inp-rpm" min="50" max="1000" step="5" value="295" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Rated Shaft Torque -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-shaft-torque" class="font-medium text-slate-300">Available Shaft Torque ($T_{shaft}$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-shaft-torque" min="10" max="500" step="1" value="145" class="w-20 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono-num text-xs text-right focus:outline-none focus:border-emerald-500 font-semibold">
+                <span class="text-slate-400 text-[11px]">Nm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-shaft-torque" min="20" max="250" step="1" value="145" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Spring Selection Presets -->
+          <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-slate-300">Spring Variant Presets:</span>
+              <span class="text-[10px] text-blue-400 font-mono-num" id="active-spring-badge">Selected: 56 N/mm</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" id="btn-spring-36" class="spring-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-center">
+                36 N/mm
+              </button>
+              <button type="button" id="btn-spring-56" class="spring-preset-btn py-1.5 px-2 rounded-lg border border-blue-500/60 bg-blue-500/20 text-blue-400 text-xs font-mono-num font-semibold transition text-center">
+                56 N/mm
+              </button>
+              <button type="button" id="btn-spring-80" class="spring-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-center">
+                80 N/mm
+              </button>
+            </div>
+          </div>
+
+          <!-- Spring stiffness (typed & slider) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-k" class="font-medium text-slate-300">Active Spring Stiffness ($k$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-k" min="1" max="500" step="0.5" value="56" class="w-20 px-2 py-0.5 rounded bg-slate-800 border border-blue-500/50 text-blue-400 font-mono-num text-xs text-right focus:outline-none focus:border-blue-500 font-semibold">
+                <span class="text-slate-400 text-[11px]">N/mm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-k" min="5" max="150" step="1" value="56" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Preload -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-preload" class="font-medium text-slate-300">Spring Preload ($x_0$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-preload" min="0" max="60" step="1" value="10" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-blue-400 font-mono-num text-xs text-right focus:outline-none focus:border-blue-500">
+                <span class="text-slate-400 text-[11px]">mm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-preload" min="0" max="40" step="1" value="10" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Striker mass -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-mass" class="font-medium text-slate-300">Striker Mass ($m$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-mass" min="0.05" max="10.0" step="0.05" value="0.60" class="w-20 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-blue-400 font-mono-num text-xs text-right focus:outline-none focus:border-blue-500">
+                <span class="text-slate-400 text-[11px]">kg</span>
+              </div>
+            </div>
+            <input type="range" id="inp-mass" min="0.1" max="3.0" step="0.05" value="0.6" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Drill Axis Angle -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-angle" class="font-medium text-slate-300">Drill Axis Angle ($\theta_{drill}$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-angle" min="-90" max="90" step="1" value="0" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-blue-400 font-mono-num text-xs text-right focus:outline-none focus:border-blue-500">
+                <span class="text-slate-400 text-[11px]">deg</span>
+              </div>
+            </div>
+            <input type="range" id="inp-angle" min="-90" max="90" step="5" value="0" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Drive Efficiency -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-efficiency" class="font-medium text-slate-300">Drive Efficiency ($\eta$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-efficiency" min="10" max="100" step="1" value="80" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-blue-400 font-mono-num text-xs text-right focus:outline-none focus:border-blue-500">
+                <span class="text-slate-400 text-[11px]">%</span>
+              </div>
+            </div>
+            <input type="range" id="inp-efficiency" min="40" max="98" step="1" value="80" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- 3-Jaw Helical Cam Parameters Section -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800/80 p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="cog" class="w-4 h-4 text-emerald-400"></i>
+            3-Jaw Helical Cam Geometry
+          </h2>
+          <span class="text-xs text-emerald-400 font-mono-num font-semibold">3 Jaws / 15mm Lift</span>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <!-- Jaw Mean Diameter -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-diameter" class="font-medium text-slate-300">Mean Jaw Diameter ($D_m$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-diameter" min="20" max="250" step="1" value="82" class="w-20 px-2 py-0.5 rounded bg-slate-800 border border-emerald-500/50 text-emerald-400 font-mono-num text-xs text-right focus:outline-none focus:border-emerald-400 font-semibold">
+                <span class="text-slate-400 text-[11px]">mm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-diameter" min="20" max="150" step="1" value="82" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Jaw Height / Stroke -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-stroke" class="font-medium text-slate-300">Jaw Height / Compression Stroke ($h$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-stroke" min="2" max="50" step="1" value="15" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-emerald-500/50 text-emerald-400 font-mono-num text-xs text-right focus:outline-none focus:border-emerald-400 font-semibold">
+                <span class="text-slate-400 text-[11px]">mm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-stroke" min="5" max="30" step="1" value="15" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Impacts per revolution (3 Jaws) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-hits" class="font-medium text-slate-300">Number of Jaws ($Z_j$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-hits" min="1" max="6" step="1" value="3" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono-num text-xs text-right focus:outline-none focus:border-emerald-400 font-semibold">
+                <span class="text-slate-400 text-[11px]">jaws</span>
+              </div>
+            </div>
+            <input type="range" id="inp-hits" min="1" max="6" step="1" value="3" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+            <span class="text-[10px] text-slate-500 block mt-0.5">3 Jaws = 120° cam pitch per impact blow.</span>
+          </div>
+
+          <!-- Helical Lead -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-lead" class="font-medium text-slate-300">Equivalent Helical Lead ($L = Z_j \cdot h$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-lead" min="5" max="200" step="1" value="45" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono-num text-xs text-right focus:outline-none focus:border-emerald-400">
+                <span class="text-slate-400 text-[11px]">mm/rev</span>
+              </div>
+            </div>
+            <input type="range" id="inp-lead" min="10" max="120" step="1" value="45" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Friction Coefficient -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-friction" class="font-medium text-slate-300">Jaw Ramp Friction Coeff ($\mu$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-friction" min="0.01" max="0.50" step="0.01" value="0.10" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono-num text-xs text-right focus:outline-none focus:border-emerald-400">
+                <span class="text-slate-400 text-[11px]">μ</span>
+              </div>
+            </div>
+            <input type="range" id="inp-friction" min="0.01" max="0.40" step="0.01" value="0.10" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- Substrate & Rock Penetration Model -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800/80 p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="mountain" class="w-4 h-4 text-amber-400"></i>
+            Substrate (Mohs 4) & Calibration
+          </h2>
+          <span class="text-xs text-amber-400 font-mono-num font-semibold">295 RPM Calibrated</span>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <!-- Drill Bit Diameter Toggle (19mm vs 21mm) -->
+          <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-slate-300">Drill Bit Diameter:</span>
+              <span class="text-[10px] text-amber-400 font-mono-num" id="active-bit-badge">Active: Ø19 mm</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btn-bit-19" class="bit-preset-btn py-1.5 px-2 rounded-lg border border-amber-500/80 bg-amber-500/20 text-amber-400 text-xs font-mono-num font-bold transition text-center shadow-sm">
+                Ø19 mm (283.5 mm²)
+              </button>
+              <button type="button" id="btn-bit-21" class="bit-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-center">
+                Ø21 mm (346.4 mm²)
+              </button>
+            </div>
+          </div>
+
+          <!-- Bit Diameter Typed Input -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-drill-dia" class="font-medium text-slate-300">Active Bit Diameter ($D_{bit}$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-drill-dia" min="8" max="50" step="0.5" value="19" class="w-16 px-2 py-0.5 rounded bg-slate-800 border border-amber-500/50 text-amber-400 font-mono-num text-xs text-right focus:outline-none focus:border-amber-400 font-semibold">
+                <span class="text-slate-400 text-[11px]">mm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-drill-dia" min="10" max="32" step="1" value="19" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Target Hole Depth (800 mm) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="num-target-depth" class="font-medium text-slate-300">Target Drilling Depth ($H_{depth}$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="num-target-depth" min="50" max="3000" step="10" value="800" class="w-20 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-400 font-mono-num text-xs text-right focus:outline-none focus:border-amber-400 font-semibold">
+                <span class="text-slate-400 text-[11px]">mm</span>
+              </div>
+            </div>
+            <input type="range" id="inp-target-depth" min="100" max="1500" step="25" value="800" class="w-full bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <!-- Empirical Calibration Note -->
+          <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300/90 leading-relaxed">
+            <span class="font-bold text-amber-400">Empirical Baseline:</span> At 295 RPM with the 56 N/mm spring and Ø19 mm bit, measured drilling time to 800 mm is exactly <strong>5.0 min (300s)</strong> $\implies$ $\text{ROP} = 160.0\text{ mm/min}$ (0.181 mm/blow).
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Visualization & Metrics & Plots (8 cols) -->
+    <section class="xl:col-span-8 flex flex-col gap-6">
+
+      <!-- Metrics KPI Bar -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <!-- Impact Energy -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 relative overflow-hidden group hover:border-blue-500/50 transition">
+          <div class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Impact Blow Energy</div>
+          <div id="kpi-impact-energy" class="text-xl sm:text-2xl font-bold font-mono-num text-blue-400 mt-1">14.70 J</div>
+          <div id="kpi-spring-energy" class="text-[10px] text-slate-500 mt-1">885 blows/min (14.7 Hz)</div>
+        </div>
+
+        <!-- ROP (Penetration Rate) -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 relative overflow-hidden group hover:border-emerald-500/50 transition">
+          <div class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Penetration Rate (ROP)</div>
+          <div id="kpi-rop" class="text-xl sm:text-2xl font-bold font-mono-num text-emerald-400 mt-1">160.0 mm/min</div>
+          <div id="kpi-rop-sub" class="text-[10px] text-slate-500 mt-1">16.0 cm/min | 0.181 mm/blow</div>
+        </div>
+
+        <!-- Penetration Time for 800 mm -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 relative overflow-hidden group hover:border-amber-500/50 transition">
+          <div class="text-[11px] font-semibold tracking-wider text-amber-300 uppercase">Time to Drill 800 mm</div>
+          <div id="kpi-drill-time" class="text-xl sm:text-2xl font-bold font-mono-num text-amber-400 mt-1">5m 00s</div>
+          <div id="kpi-drill-time-sec" class="text-[10px] text-slate-500 mt-1">300.0s calibrated benchmark</div>
+        </div>
+
+        <!-- Stall Margin & Cam Torque -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 relative overflow-hidden group hover:border-purple-500/50 transition">
+          <div class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Torque Margin (Stall)</div>
+          <div id="kpi-stall-margin" class="text-xl sm:text-2xl font-bold font-mono-num text-purple-400 mt-1">7.2× Safe</div>
+          <div id="kpi-torque-detail" class="text-[10px] text-slate-500 mt-1">Shaft: 145 Nm | Cam: 20.0 Nm</div>
+        </div>
+      </div>
+
+      <!-- 4 Gearbox Speeds vs 3 Springs Performance Matrix -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+          <div class="flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-200">
+              4 Gearbox RPM Speeds & Torque vs Penetration Time (800mm Depth)
+            </h4>
+          </div>
+          <span class="text-[11px] text-amber-400 font-mono-num">Calibrated: 295 RPM = 5.0m</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400">
+                <th class="py-2 px-2.5 font-semibold">Speed Setting</th>
+                <th class="py-2 px-2.5 font-semibold text-right">Shaft Torque</th>
+                <th class="py-2 px-2.5 font-semibold text-right">Blow Rate</th>
+                <th class="py-2 px-2.5 font-semibold text-right text-amber-400">36 N/mm (Ø19)</th>
+                <th class="py-2 px-2.5 font-semibold text-right text-blue-400">56 N/mm (Ø19)</th>
+                <th class="py-2 px-2.5 font-semibold text-right text-emerald-400">80 N/mm (Ø19)</th>
+                <th class="py-2 px-2.5 font-semibold text-right text-sky-400">56 N/mm (Ø21)</th>
+                <th class="py-2 px-2.5 font-semibold text-right">Stall Margin</th>
+                <th class="py-2 px-2.5 text-center font-semibold">Select</th>
+              </tr>
+            </thead>
+            <tbody id="gearbox-table-body" class="divide-y divide-slate-800/60 font-mono-num text-slate-300">
+              <!-- Dynamically populated rows for 140, 240, 295, 507 RPM -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2D Canvas Physical Mechanism & Drilling Animation -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 relative shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <div class="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+              <button id="view-mode-mechanism" class="px-2.5 py-1 rounded text-xs font-medium text-slate-300 hover:text-white bg-slate-700 shadow-sm transition">
+                Mechanism View
+              </button>
+              <button id="view-mode-drilling" class="px-2.5 py-1 rounded text-xs font-medium text-slate-400 hover:text-white transition">
+                800mm Penetration View
+              </button>
+            </div>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse ml-2"></span>
+          </div>
+
+          <div class="flex items-center gap-3 text-xs text-slate-400">
+            <span id="canvas-status-tag" class="font-mono-num text-blue-400">Cam Ramp (15mm)</span>
+            <button id="btn-reset-drill-sim" class="text-slate-400 hover:text-slate-200 flex items-center gap-1 border border-slate-700 px-2 py-0.5 rounded text-[11px] bg-slate-800">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restart Drill
+            </button>
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-400 hover:text-slate-200">
+              <input type="checkbox" id="chk-slowmo" class="rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0">
+              <span>Slow-mo</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full aspect-[21/9] sm:aspect-[24/8] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
+          <canvas id="mechCanvas" class="w-full h-full block"></canvas>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 mt-2 px-1 gap-2">
+          <div class="flex items-center gap-3" id="canvas-legend">
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded bg-blue-500"></span> Preloaded Spring</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded bg-indigo-500"></span> Striker</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded bg-emerald-500"></span> 3-Jaw Cam (Ø82mm)</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded bg-amber-500"></span> Substrate (Mohs 4)</span>
+          </div>
+          <div id="status-contact" class="font-mono-num text-blue-400 font-medium">Compressing 15mm stroke...</div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- Chart 1: Penetration Time vs Depth across 4 Gears -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-300">1. Drilling Time vs Depth (0 to 800 mm)</h4>
+            <span class="text-[11px] text-amber-400 font-mono-num" id="chart-t800-val">295 RPM: 5m 00s</span>
+          </div>
+          <div class="relative h-56 w-full">
+            <canvas id="chartDepthTime"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Penetration Rate (ROP) across Gear Speeds & Bits -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-300">2. ROP vs Spindle Speed (140, 240, 295, 507 RPM)</h4>
+            <span class="text-[11px] text-emerald-400 font-mono-num" id="chart-rop-val">ROP: 160 mm/min</span>
+          </div>
+          <div class="relative h-56 w-full">
+            <canvas id="chartRopHardness"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 3: Cam Torque Profile vs Available Shaft Torque -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-sm flex flex-col md:col-span-2">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-300">3. 3-Jaw Cam Torque T(θ) vs Gearbox Shaft Torque (145 Nm)</h4>
+            <span class="text-[11px] text-purple-400 font-mono-num" id="chart-peak-t">Margin: 7.2×</span>
+          </div>
+          <div class="relative h-56 w-full">
+            <canvas id="chartTorqueProfile"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Calculation Sheet Summary Table -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <i data-lucide="table" class="w-4 h-4 text-blue-400"></i>
+            Detailed Engineering Calculation Sheet
+          </h4>
+          <span class="text-xs text-slate-500">Rock Mechanics & Mechanism Parameters</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400">
+                <th class="py-2 px-3 font-semibold">Parameter Description</th>
+                <th class="py-2 px-3 font-semibold">Symbol</th>
+                <th class="py-2 px-3 font-semibold text-right">Calculated Value</th>
+                <th class="py-2 px-3 font-semibold">Unit</th>
+              </tr>
+            </thead>
+            <tbody id="calc-table-body" class="divide-y divide-slate-800/60 font-mono-num text-slate-300">
+              <!-- Dynamically rendered rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Interactive JavaScript Engine -->
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // 4 Empirical Gearbox Settings
+    const GEARBOX_SETTINGS = [
+      { rpm: 140, torque: 148, power: 2.17, label: "Gear 1-L (140 RPM @ 148 Nm)" },
+      { rpm: 240, torque: 86,  power: 2.16, label: "Gear 2-L (240 RPM @ 86 Nm)" },
+      { rpm: 295, torque: 145, power: 4.48, label: "Gear 1-H (295 RPM @ 145 Nm)" },
+      { rpm: 507, torque: 84,  power: 4.46, label: "Gear 2-H (507 RPM @ 84 Nm)" }
+    ];
+
+    // Default configuration with 295 RPM benchmark preset
+    const params = {
+      rpm: 295,
+      shaftTorque: 145,   // Available motor shaft torque (Nm)
+      hits: 3,            // 3 jaws
+      mass: 0.60,         // kg
+      k: 56,              // N/mm
+      preload: 10,        // mm
+      stroke: 15,         // mm
+      angle: 0,           // deg
+      efficiency: 0.80,   // fraction
+      diameter: 82,       // mm (mean jaw diameter)
+      lead: 45,           // mm/rev (15mm * 3 jaws)
+      friction: 0.10,     // coeff
+      drillDia: 19,       // mm (19 or 21)
+      targetDepth: 800    // mm
+    };
+
+    const SPRING_PRESETS = [36, 56, 80];
+
+    // Empirical calibration constant:
+    // At 295 RPM, 56 N/mm, Ø19mm -> exactly 800mm in 300s (5.0 min)
+    // ROP_cal = 160 mm/min = (800 / 5.0)
+    // ROP scales linearly with: (RPM * hits) * (ImpactEnergy / BaselineEnergy_56) * (Area_19 / Area_D)
+    const BASELINE_RPM = 295;
+    const BASELINE_K = 56;
+    const BASELINE_DIA = 19;
+    const BASELINE_ROP_MM_MIN = 160.0; // 800 mm / 5 min
+
+    let isPlaying = true;
+    let slowMo = false;
+    let viewMode = 'mechanism'; // 'mechanism' or 'drilling'
+    let animPhase = 0;
+    let spindleAngleDeg = 0;
+    let lastTimestamp = performance.now();
+    let sparkParticles = [];
+    let rockChips = [];
+
+    // Drilling simulation live accumulator
+    let simulatedDrilledDepth = 0; // mm
+    let simulatedElapsedSec = 0;   // seconds
+
+    // Cached computed results
+    let results = {};
+
+    // Helper: calculate kinematics & penetration for any given RPM, spring stiffness, and drill diameter
+    function computeForState(rpm_val, k_val, d_bit) {
+      const g = 9.81;
+      const k_nm = k_val * 1000;
+      const x0 = params.preload / 1000;
+      const s = params.stroke / 1000;
+      const xmax = x0 + s;
+
+      const spring_energy = 0.5 * k_nm * (Math.pow(xmax, 2) - Math.pow(x0, 2));
+      const radAngle = (params.angle * Math.PI) / 180;
+      const gravity_energy = params.mass * g * s * Math.sin(radAngle);
+      const impact_energy = Math.max(0, spring_energy + gravity_energy);
+      const impact_velocity = Math.sqrt((2 * impact_energy) / params.mass);
+
+      const max_spring_force = k_val * (params.preload + params.stroke);
+      const preload_force = k_val * params.preload;
+      const frequency = rpm_val * params.hits; // impacts per min
+      const average_torque = (impact_energy * params.hits) / (2 * Math.PI * params.efficiency);
+      const angular_speed = (2 * Math.PI * rpm_val) / 60;
+      const average_power = average_torque * angular_speed;
+
+      const dm = params.diameter / 1000;
+      const helix_angle = Math.atan(params.lead / (Math.PI * params.diameter));
+      const friction_angle = Math.atan(params.friction);
+      const jaw_torque = (max_spring_force * (dm / 2) * Math.tan(helix_angle + friction_angle)) / params.efficiency;
+
+      // Base spring energy for 56 N/mm baseline
+      const base_spring_energy = 0.5 * (BASELINE_K * 1000) * (Math.pow(xmax, 2) - Math.pow(x0, 2));
+
+      // Empirically calibrated ROP:
+      // ROP = BASELINE_ROP * (RPM / 295) * (E_impact / E_base56) * ((19 / d_bit)^2)
+      const energy_ratio = impact_energy / base_spring_energy;
+      const area_ratio = Math.pow(BASELINE_DIA / d_bit, 2);
+      const speed_ratio = rpm_val / BASELINE_RPM;
+
+      const rop_mm_per_min = BASELINE_ROP_MM_MIN * speed_ratio * energy_ratio * area_ratio;
+      const rop_mm_per_sec = rop_mm_per_min / 60;
+      const rop_cm_per_min = rop_mm_per_min / 10;
+
+      // Time to drill target depth (800 mm)
+      const time_seconds = params.targetDepth / rop_mm_per_sec;
+      const minutes = Math.floor(time_seconds / 60);
+      const seconds = Math.round(time_seconds % 60);
+
+      // Advance per revolution & advance per blow
+      const advance_per_rev = rop_mm_per_min / rpm_val; // mm/rev
+      const advance_per_blow = rop_mm_per_min / frequency; // mm/blow
+
+      // Volumetric removal rate (cm^3/min)
+      const area_mm2 = (Math.PI / 4) * Math.pow(d_bit, 2);
+      const volumetric_rate_cm3_per_min = (rop_mm_per_min * area_mm2) / 1000;
+
+      // Available torque margin / stall factor
+      const stall_margin = params.shaftTorque / jaw_torque;
+
+      return {
+        rpm: rpm_val,
+        k: k_val,
+        drillDia: d_bit,
+        area_mm2,
+        spring_energy,
+        gravity_energy,
+        impact_energy,
+        impact_velocity,
+        max_spring_force,
+        preload_force,
+        frequency,
+        average_torque,
+        average_power,
+        jaw_torque,
+        stall_margin,
+        rop_mm_per_min,
+        rop_cm_per_min,
+        time_seconds,
+        time_str: `${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s`,
+        advance_per_rev,
+        advance_per_blow,
+        volumetric_rate_cm3_per_min
+      };
+    }
+
+    function calculateMechanics() {
+      const computed = computeForState(params.rpm, params.k, params.drillDia);
+      results = {
+        ...computed,
+        xmax_mm: params.preload + params.stroke
+      };
+
+      updateUI();
+    }
+
+    function updateUI() {
+      // Sync Range Sliders and Typed Inputs
+      const syncMap = [
+        { slider: 'inp-rpm', num: 'num-rpm', val: params.rpm },
+        { slider: 'inp-shaft-torque', num: 'num-shaft-torque', val: params.shaftTorque },
+        { slider: 'inp-hits', num: 'num-hits', val: params.hits },
+        { slider: 'inp-mass', num: 'num-mass', val: params.mass },
+        { slider: 'inp-k', num: 'num-k', val: params.k },
+        { slider: 'inp-preload', num: 'num-preload', val: params.preload },
+        { slider: 'inp-stroke', num: 'num-stroke', val: params.stroke },
+        { slider: 'inp-angle', num: 'num-angle', val: params.angle },
+        { slider: 'inp-efficiency', num: 'num-efficiency', val: Math.round(params.efficiency * 100) },
+        { slider: 'inp-diameter', num: 'num-diameter', val: params.diameter },
+        { slider: 'inp-lead', num: 'num-lead', val: params.lead },
+        { slider: 'inp-friction', num: 'num-friction', val: params.friction },
+        { slider: 'inp-drill-dia', num: 'num-drill-dia', val: params.drillDia },
+        { slider: 'inp-target-depth', num: 'num-target-depth', val: params.targetDepth }
+      ];
+
+      syncMap.forEach(item => {
+        const sliderEl = document.getElementById(item.slider);
+        const numEl = document.getElementById(item.num);
+        if (sliderEl && document.activeElement !== sliderEl) sliderEl.value = item.val;
+        if (numEl && document.activeElement !== numEl) numEl.value = item.val;
+      });
+
+      // Update Gearbox preset buttons styling
+      const gearLabels = { 140: 'Gear 1-L', 240: 'Gear 2-L', 295: 'Gear 1-H (Calibrated)', 507: 'Gear 2-H' };
+      document.getElementById('gearbox-active-label').textContent = gearLabels[params.rpm] || `${params.rpm} RPM Custom`;
+      const shaftPowerKw = ((2 * Math.PI * params.rpm * params.shaftTorque) / 60 / 1000).toFixed(2);
+      document.getElementById('active-gear-rated-power').textContent = `${shaftPowerKw} kW Shaft Pwr`;
+
+      [140, 240, 295, 507].forEach(gRpm => {
+        const btn = document.getElementById(`btn-gear-${gRpm}`);
+        if (btn) {
+          if (Math.abs(params.rpm - gRpm) < 2) {
+            btn.className = 'gear-preset-btn py-1.5 px-2 rounded-lg border border-blue-500/80 bg-blue-500/25 text-blue-400 text-xs font-mono-num font-bold transition text-left flex flex-col shadow-sm';
+          } else {
+            btn.className = 'gear-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-left flex flex-col';
+          }
+        }
+      });
+
+      // Update active spring badge and buttons
+      document.getElementById('active-spring-badge').textContent = `Active: ${params.k} N/mm`;
+      SPRING_PRESETS.forEach(sp => {
+        const btn = document.getElementById(`btn-spring-${sp}`);
+        if (btn) {
+          if (Math.abs(params.k - sp) < 0.01) {
+            btn.className = 'spring-preset-btn py-1.5 px-2 rounded-lg border border-blue-500/80 bg-blue-500/25 text-blue-400 text-xs font-mono-num font-bold transition text-center shadow-sm';
+          } else {
+            btn.className = 'spring-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-center';
+          }
+        }
+      });
+
+      // Update bit preset buttons
+      const btn19 = document.getElementById('btn-bit-19');
+      const btn21 = document.getElementById('btn-bit-21');
+      const bitBadge = document.getElementById('active-bit-badge');
+      bitBadge.textContent = `Active: Ø${params.drillDia} mm`;
+
+      if (Math.abs(params.drillDia - 19) < 0.1) {
+        btn19.className = 'bit-preset-btn py-1.5 px-2 rounded-lg border border-amber-500/80 bg-amber-500/20 text-amber-400 text-xs font-mono-num font-bold transition text-center shadow-sm';
+        btn21.className = 'bit-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-center';
+      } else if (Math.abs(params.drillDia - 21) < 0.1) {
+        btn21.className = 'bit-preset-btn py-1.5 px-2 rounded-lg border border-amber-500/80 bg-amber-500/20 text-amber-400 text-xs font-mono-num font-bold transition text-center shadow-sm';
+        btn19.className = 'bit-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-num text-slate-300 transition text-center';
+      } else {
+        btn19.className = 'bit-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 text-xs font-mono-num text-slate-300 transition text-center';
+        btn21.className = 'bit-preset-btn py-1.5 px-2 rounded-lg border border-slate-700 bg-slate-800/80 text-xs font-mono-num text-slate-300 transition text-center';
+      }
+
+      // Top KPIs
+      document.getElementById('kpi-impact-energy').textContent = `${results.impact_energy.toFixed(2)} J`;
+      document.getElementById('kpi-spring-energy').textContent = `${Math.round(results.frequency)} blows/min (${(results.frequency / 60).toFixed(1)} Hz)`;
+
+      document.getElementById('kpi-rop').textContent = `${results.rop_mm_per_min.toFixed(1)} mm/min`;
+      document.getElementById('kpi-rop-sub').textContent = `${results.rop_cm_per_min.toFixed(1)} cm/min | ${results.advance_per_blow.toFixed(3)} mm/blow`;
+
+      document.getElementById('kpi-drill-time').textContent = results.time_str;
+      document.getElementById('kpi-drill-time-sec').textContent = `${results.time_seconds.toFixed(1)}s for ${params.targetDepth}mm (Ø${params.drillDia}mm)`;
+
+      document.getElementById('kpi-stall-margin').textContent = `${results.stall_margin.toFixed(1)}× Safe`;
+      document.getElementById('kpi-torque-detail').textContent = `Shaft: ${params.shaftTorque} Nm | Cam: ${results.jaw_torque.toFixed(1)} Nm`;
+
+      // Header labels on charts
+      document.getElementById('chart-t800-val').textContent = `${params.rpm} RPM: ${results.time_str}`;
+      document.getElementById('chart-rop-val').textContent = `ROP: ${results.rop_mm_per_min.toFixed(1)} mm/min`;
+      document.getElementById('chart-peak-t').textContent = `Margin: ${results.stall_margin.toFixed(1)}× (${params.shaftTorque} vs ${results.jaw_torque.toFixed(1)} Nm)`;
+
+      // Render 4-Gearbox Speeds Comparison Table
+      const gearTableBody = document.getElementById('gearbox-table-body');
+      gearTableBody.innerHTML = GEARBOX_SETTINGS.map(g => {
+        const isCurrent = Math.abs(params.rpm - g.rpm) < 2;
+        const res36_19 = computeForState(g.rpm, 36, 19);
+        const res56_19 = computeForState(g.rpm, 56, 19);
+        const res80_19 = computeForState(g.rpm, 80, 19);
+        const res56_21 = computeForState(g.rpm, 56, 21);
+
+        const margin = (g.torque / res56_19.jaw_torque).toFixed(1);
+        const activeClass = isCurrent ? 'bg-blue-950/40 border-l-2 border-l-blue-400 font-semibold' : 'hover:bg-slate-800/40';
+
+        return `
+          <tr class="${activeClass} transition">
+            <td class="py-2.5 px-2.5 text-slate-200">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${g.rpm === 295 ? 'bg-blue-400' : 'bg-slate-400'}"></span>
+                <strong>${g.rpm} RPM</strong>
+                ${g.rpm === 295 ? '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Calibrated</span>' : ''}
+              </span>
+            </td>
+            <td class="py-2.5 px-2.5 text-right font-semibold text-emerald-400">${g.torque} Nm</td>
+            <td class="py-2.5 px-2.5 text-right text-slate-300">${g.rpm * 3}/min</td>
+            <td class="py-2.5 px-2.5 text-right text-amber-400">${res36_19.time_str}</td>
+            <td class="py-2.5 px-2.5 text-right text-blue-300 font-bold">${res56_19.time_str}</td>
+            <td class="py-2.5 px-2.5 text-right text-emerald-300 font-bold">${res80_19.time_str}</td>
+            <td class="py-2.5 px-2.5 text-right text-sky-400">${res56_21.time_str}</td>
+            <td class="py-2.5 px-2.5 text-right font-semibold text-purple-400">${margin}×</td>
+            <td class="py-2.5 px-2.5 text-center">
+              <button onclick="setGearboxSpeed(${g.rpm}, ${g.torque})" class="px-2 py-0.5 rounded text-[11px] bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white border border-slate-700 transition">
+                Select
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Calculation Sheet Table
+      const rows = [
+        { name: "Target Drilling Depth", sym: "H_depth", val: params.targetDepth, unit: "mm" },
+        { name: "Active Drill Bit Diameter", sym: "D_bit", val: params.drillDia, unit: "mm" },
+        { name: "Spindle Speed Setting", sym: "N_spindle", val: params.rpm, unit: "RPM" },
+        { name: "Available Motor Shaft Torque", sym: "T_shaft", val: params.shaftTorque, unit: "Nm" },
+        { name: "Available Shaft Mechanical Power", sym: "P_shaft", val: (((2 * Math.PI * params.rpm * params.shaftTorque) / 60) / 1000).toFixed(2), unit: "kW" },
+        { name: "Quasi-Static Peak Cam Torque", sym: "T_cam,peak", val: results.jaw_torque.toFixed(2), unit: "Nm" },
+        { name: "Torque Stall Safety Margin", sym: "SF_stall", val: `${results.stall_margin.toFixed(1)}×`, unit: "ratio" },
+        { name: "Impact Blow Frequency (3 Jaws)", sym: "f_blows", val: Math.round(results.frequency), unit: "blows/min" },
+        { name: "Net Impact Blow Energy", sym: "E_impact", val: results.impact_energy.toFixed(2), unit: "J" },
+        { name: "Calculated Rate of Penetration", sym: "ROP", val: results.rop_mm_per_min.toFixed(1), unit: "mm/min" },
+        { name: "Calculated Drilling Time (800mm)", sym: "t_800mm", val: `${results.time_str} (${results.time_seconds.toFixed(1)}s)`, unit: "min:sec" },
+        { name: "Advance per Spindle Revolution", sym: "δ_rev", val: results.advance_per_rev.toFixed(3), unit: "mm/rev" },
+        { name: "Advance per Chisel Impact Blow", sym: "δ_blow", val: results.advance_per_blow.toFixed(3), unit: "mm/blow" },
+        { name: "Volumetric Rock Removal Rate", sym: "V_rate", val: results.volumetric_rate_cm3_per_min.toFixed(2), unit: "cm³/min" }
+      ];
+
+      const tbody = document.getElementById('calc-table-body');
+      tbody.innerHTML = rows.map(r => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-2 px-3 text-slate-300 font-sans">${r.name}</td>
+          <td class="py-2 px-3 text-blue-400">${r.sym}</td>
+          <td class="py-2 px-3 text-right font-semibold text-emerald-400">${r.val}</td>
+          <td class="py-2 px-3 text-slate-400">${r.unit}</td>
+        </tr>
+      `).join('');
+
+      updateCharts();
+    }
+
+    // Direct helper to change gearbox speed & torque
+    window.setGearboxSpeed = function(rpm, torque) {
+      params.rpm = rpm;
+      params.shaftTorque = torque;
+      calculateMechanics();
+    };
+
+    window.setSpringStiffness = function(val) {
+      params.k = val;
+      calculateMechanics();
+    };
+
+    window.setDrillBit = function(dia) {
+      params.drillDia = dia;
+      calculateMechanics();
+    };
+
+    // Chart.js Instances
+    let chartDepthTimeInstance = null;
+    let chartRopHardnessInstance = null;
+    let chartTorqueProfileInstance = null;
+
+    function initCharts() {
+      // 1. Time vs Depth Chart (0 to 800 mm) for all 4 Gearbox Speeds
+      const ctxDepth = document.getElementById('chartDepthTime').getContext('2d');
+      chartDepthTimeInstance = new Chart(ctxDepth, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: '140 RPM (148 Nm)',
+              data: [],
+              borderColor: '#64748b',
+              borderWidth: 2,
+              pointRadius: 0
+            },
+            {
+              label: '240 RPM (86 Nm)',
+              data: [],
+              borderColor: '#f59e0b',
+              borderWidth: 2,
+              pointRadius: 0
+            },
+            {
+              label: '295 RPM (145 Nm) [Calibrated]',
+              data: [],
+              borderColor: '#3b82f6',
+              borderWidth: 3,
+              pointRadius: 0
+            },
+            {
+              label: '507 RPM (84 Nm)',
+              data: [],
+              borderColor: '#10b981',
+              borderWidth: 2,
+              pointRadius: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: '#0f172a',
+              borderColor: '#334155',
+              borderWidth: 1,
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}s (${Math.floor(context.parsed.y / 60)}m ${Math.round(context.parsed.y % 60)}s)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } },
+              title: { display: true, text: 'Hole Depth (mm)', color: '#64748b', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } },
+              title: { display: true, text: 'Penetration Time (seconds)', color: '#64748b', font: { size: 10 } },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // 2. ROP vs Spindle Speed comparing Ø19 vs Ø21 mm
+      const ctxRop = document.getElementById('chartRopHardness').getContext('2d');
+      chartRopHardnessInstance = new Chart(ctxRop, {
+        type: 'bar',
+        data: {
+          labels: ['140 RPM', '240 RPM', '295 RPM', '507 RPM'],
+          datasets: [
+            {
+              label: 'Ø19 mm Bit (ROP mm/min)',
+              data: [],
+              backgroundColor: 'rgba(59, 130, 246, 0.75)',
+              borderColor: '#3b82f6',
+              borderWidth: 1.5
+            },
+            {
+              label: 'Ø21 mm Bit (ROP mm/min)',
+              data: [],
+              backgroundColor: 'rgba(245, 158, 11, 0.75)',
+              borderColor: '#f59e0b',
+              borderWidth: 1.5
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: '#334155',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } },
+              title: { display: true, text: 'Rate of Penetration (mm/min)', color: '#64748b', font: { size: 10 } },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // 3. Cam Torque Profile vs Available Shaft Torque
+      const ctxTorque = document.getElementById('chartTorqueProfile').getContext('2d');
+      chartTorqueProfileInstance = new Chart(ctxTorque, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Available Gearbox Shaft Torque (Nm)',
+              data: [],
+              borderColor: '#10b981',
+              borderDash: [6, 4],
+              borderWidth: 2,
+              pointRadius: 0
+            },
+            {
+              label: '3-Jaw Cam Torque T(θ)',
+              data: [],
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.15)',
+              borderWidth: 2,
+              fill: true,
+              pointRadius: 0,
+              tension: 0.05
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: '#0f172a',
+              borderColor: '#334155',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } },
+              title: { display: true, text: '360° Spindle Rotation (3 Jaws × 120° Pitch)', color: '#64748b', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } },
+              title: { display: true, text: 'Torque (Nm)', color: '#64748b', font: { size: 10 } },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function updateCharts() {
+      if (!chartDepthTimeInstance) return;
+
+      // Update 1: Depth vs Time (0 to 800 mm) for 140, 240, 295, 507 RPM
+      const depthSteps = 20;
+      const depthLabels = [];
+      const times = [[], [], [], []];
+      const speeds = [140, 240, 295, 507];
+
+      for (let i = 0; i <= depthSteps; i++) {
+        const d_mm = (i / depthSteps) * params.targetDepth;
+        depthLabels.push(Math.round(d_mm));
+        speeds.forEach((sp, idx) => {
+          const res = computeForState(sp, params.k, params.drillDia);
+          times[idx].push((d_mm / (res.rop_mm_per_min / 60)).toFixed(1));
+        });
+      }
+
+      chartDepthTimeInstance.data.labels = depthLabels;
+      speeds.forEach((_, idx) => {
+        chartDepthTimeInstance.data.datasets[idx].data = times[idx];
+      });
+      chartDepthTimeInstance.update('none');
+
+      // Update 2: ROP Bar chart comparing Ø19 vs Ø21 across the 4 gear speeds
+      const rop19 = [];
+      const rop21 = [];
+      speeds.forEach(sp => {
+        rop19.push(computeForState(sp, params.k, 19).rop_mm_per_min.toFixed(1));
+        rop21.push(computeForState(sp, params.k, 21).rop_mm_per_min.toFixed(1));
+      });
+      chartRopHardnessInstance.data.datasets[0].data = rop19;
+      chartRopHardnessInstance.data.datasets[1].data = rop21;
+      chartRopHardnessInstance.update('none');
+
+      // Update 3: 3-Jaw Cyclic Cam Torque vs Shaft Available Torque over 360 deg
+      const cycleSpanDeg = 360 / params.hits; // 120°
+      const rampDeg = cycleSpanDeg * 0.90;
+      const thetaLabels = [];
+      const torqueData = [];
+      const shaftTorqueData = [];
+
+      const dm = params.diameter / 1000;
+      const helix_angle = Math.atan(params.lead / (Math.PI * params.diameter));
+      const friction_angle = Math.atan(params.friction);
+      const torqueFactor = ((dm / 2) * Math.tan(helix_angle + friction_angle)) / params.efficiency;
+
+      for (let deg = 0; deg <= 360; deg += 3) {
+        thetaLabels.push(`${deg}°`);
+        const subAngle = deg % cycleSpanDeg;
+        let tNow = 0;
+        if (subAngle <= rampDeg) {
+          const strokeFraction = subAngle / rampDeg;
+          const currentForce = params.k * (params.preload + params.stroke * strokeFraction);
+          tNow = currentForce * torqueFactor;
+        } else {
+          tNow = 0.05 * results.jaw_torque;
+        }
+        torqueData.push(tNow.toFixed(2));
+        shaftTorqueData.push(params.shaftTorque.toFixed(1));
+      }
+
+      chartTorqueProfileInstance.data.labels = thetaLabels;
+      chartTorqueProfileInstance.data.datasets[0].data = shaftTorqueData;
+      chartTorqueProfileInstance.data.datasets[1].data = torqueData;
+      chartTorqueProfileInstance.update('none');
+    }
+
+    // Canvas Simulation Loop
+    const canvas = document.getElementById('mechCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.resetTransform?.();
+      ctx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function triggerImpactSparks(x, y) {
+      for (let i = 0; i < 24; i++) {
+        const ang = (Math.random() - 0.5) * Math.PI * 1.3 - (params.angle * Math.PI) / 180;
+        const spd = 2 + Math.random() * 6;
+        sparkParticles.push({
+          x: x,
+          y: y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 1.0,
+          color: Math.random() > 0.4 ? '#f59e0b' : '#38bdf8',
+          size: 1.5 + Math.random() * 2
+        });
+      }
+    }
+
+    function triggerRockChips(x, y) {
+      for (let i = 0; i < 6; i++) {
+        const ang = Math.PI - 0.5 + Math.random();
+        const spd = 1.5 + Math.random() * 4;
+        rockChips.push({
+          x: x,
+          y: y + (Math.random() - 0.5) * (params.drillDia * 1.2),
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 1.0,
+          color: Math.random() > 0.5 ? '#e2e8f0' : '#cbd5e1',
+          size: 2 + Math.random() * 2.5
+        });
+      }
+    }
+
+    function renderAnimation(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const dt = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      const revsPerSec = params.rpm / 60;
+      const speedMultiplier = slowMo ? 0.25 : 1.0;
+
+      if (isPlaying) {
+        spindleAngleDeg = (spindleAngleDeg + 360 * revsPerSec * dt * speedMultiplier) % 360;
+        const cycleDeg = 360 / params.hits;
+        animPhase = (spindleAngleDeg % cycleDeg) / cycleDeg;
+
+        // Advance drilled depth
+        if (results.rop_mm_per_min) {
+          const advanceRateMmPerSec = (results.rop_mm_per_min / 60) * (speedMultiplier === 1.0 ? 3.5 : 0.8);
+          simulatedElapsedSec += dt * (speedMultiplier === 1.0 ? 3.5 : 0.8);
+          simulatedDrilledDepth = Math.min(params.targetDepth, simulatedDrilledDepth + advanceRateMmPerSec * dt);
+        }
+      }
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      const gridGap = 28;
+      for (let gx = 0; gx < w; gx += gridGap) {
+        ctx.beginPath();
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, h);
+        ctx.stroke();
+      }
+      for (let gy = 0; gy < h; gy += gridGap) {
+        ctx.beginPath();
+        ctx.moveTo(0, gy);
+        ctx.lineTo(w, gy);
+        ctx.stroke();
+      }
+
+      if (viewMode === 'mechanism') {
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate((params.angle * Math.PI) / 180);
+        ctx.translate(-w / 2, -h / 2);
+
+        const cy = h / 2;
+        const barrelLeft = w * 0.08;
+        const barrelRight = w * 0.92;
+        const totalSpan = barrelRight - barrelLeft;
+
+        const RAMP_END = 0.88;
+        let strikerFraction = 0;
+        let isImpacting = false;
+
+        if (animPhase <= RAMP_END) {
+          strikerFraction = animPhase / RAMP_END;
+          document.getElementById('status-contact').textContent = `3-Jaw Helical Ramp: ${Math.round(strikerFraction * params.stroke)}mm / 15mm`;
+          document.getElementById('status-contact').className = 'font-mono-num text-amber-400 font-medium';
+          document.getElementById('canvas-status-tag').textContent = `Jaw Ramp (${Math.round(strikerFraction * 100)}%)`;
+        } else {
+          const relPhase = (animPhase - RAMP_END) / (1 - RAMP_END);
+          strikerFraction = 1.0 - Math.pow(relPhase, 2.4);
+          document.getElementById('status-contact').textContent = '⚡ Jaw Release Impact!';
+          document.getElementById('status-contact').className = 'font-mono-num text-emerald-400 font-medium';
+          document.getElementById('canvas-status-tag').textContent = `Strike Blow`;
+
+          if (relPhase > 0.86 && relPhase < 0.96) {
+            isImpacting = true;
+          }
+        }
+
+        const anvilX = barrelRight - totalSpan * 0.22;
+        const maxRetractPixels = totalSpan * 0.22 * (params.stroke / 15);
+        const strikerWidth = totalSpan * 0.13 * Math.cbrt(params.mass / 0.6);
+        const strikerHeight = 36;
+        const springAnchorX = barrelLeft + totalSpan * 0.08;
+
+        const strikerRestX = anvilX - strikerWidth - 4;
+        const strikerCurrentX = strikerRestX - strikerFraction * maxRetractPixels;
+
+        if (isImpacting && isPlaying) {
+          triggerImpactSparks(anvilX - 2, cy);
+        }
+
+        // Guide Rails
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(barrelLeft, cy - strikerHeight - 8, totalSpan, strikerHeight * 2 + 16);
+
+        // Fixed Support
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(barrelLeft - 10, cy - strikerHeight - 12, 14, (strikerHeight + 12) * 2);
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barrelLeft - 10, cy - strikerHeight - 12, 14, (strikerHeight + 12) * 2);
+
+        // Spring
+        const springLength = strikerCurrentX - springAnchorX;
+        const coils = 12;
+        const coilAmp = 18;
+        ctx.beginPath();
+        ctx.strokeStyle = params.k <= 45 ? '#f59e0b' : params.k <= 65 ? '#38bdf8' : '#10b981';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.moveTo(springAnchorX, cy);
+
+        const coilStep = springLength / (coils * 2);
+        for (let c = 0; c < coils * 2; c++) {
+          const px = springAnchorX + (c + 0.5) * coilStep;
+          const py = cy + (c % 2 === 0 ? -coilAmp : coilAmp);
+          ctx.lineTo(px, py);
+        }
+        ctx.lineTo(strikerCurrentX, cy);
+        ctx.stroke();
+
+        // Striker
+        const gradStriker = ctx.createLinearGradient(strikerCurrentX, cy - strikerHeight, strikerCurrentX, cy + strikerHeight);
+        gradStriker.addColorStop(0, '#6366f1');
+        gradStriker.addColorStop(0.5, '#4338ca');
+        gradStriker.addColorStop(1, '#312e81');
+
+        ctx.fillStyle = gradStriker;
+        ctx.beginPath();
+        ctx.roundRect(strikerCurrentX, cy - strikerHeight / 2, strikerWidth, strikerHeight, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#818cf8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${params.mass.toFixed(2)}kg`, strikerCurrentX + strikerWidth / 2, cy + 4);
+
+        // 3-Jaw Cam (Ø82mm)
+        const jawX = strikerCurrentX - 16;
+        const jawRadius = Math.min(42, Math.max(22, (params.diameter / 82) * 32));
+
+        ctx.save();
+        ctx.fillStyle = '#059669';
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 2;
+
+        const numTeeth = params.hits;
+        const toothAngleSpan = (2 * Math.PI) / numTeeth;
+
+        ctx.beginPath();
+        for (let t = 0; t < numTeeth; t++) {
+          const toothStartAngle = (spindleAngleDeg * Math.PI / 180) + t * toothAngleSpan;
+          const toothRampX = jawX - 30;
+          const toothY = cy + Math.sin(toothStartAngle) * jawRadius;
+          if (t === 0) {
+            ctx.moveTo(toothRampX, toothY - 8);
+          }
+          ctx.lineTo(jawX, toothY);
+          ctx.lineTo(toothRampX, toothY + 8);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = '9px Inter';
+        ctx.textAlign = 'right';
+        ctx.fillText(`3-Jaw Ø${Math.round(params.diameter)}mm (h=15mm) ↻`, jawX - 35, cy + 3);
+        ctx.restore();
+
+        // Anvil
+        const anvilWidth = 26;
+        const anvilHeight = 44;
+        ctx.fillStyle = '#475569';
+        ctx.beginPath();
+        ctx.roundRect(anvilX, cy - anvilHeight / 2, anvilWidth, anvilHeight, 4);
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Drill bit
+        const bitX = anvilX + anvilWidth;
+        const bitLen = totalSpan * 0.16;
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(bitX, cy - 6, bitLen, 12);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(bitX, cy - 6, bitLen, 12);
+
+        // Sparks
+        for (let i = sparkParticles.length - 1; i >= 0; i--) {
+          const p = sparkParticles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= dt * 2.8;
+
+          if (p.life <= 0) {
+            sparkParticles.splice(i, 1);
+            continue;
+          }
+
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+        }
+
+        ctx.restore();
+
+      } else {
+        // VIEW MODE 2: 800mm PENETRATION PROGRESS VIEW
+        const cy = h / 2;
+        const marginX = w * 0.08;
+        const blockW = w * 0.65;
+        const blockStartX = w - blockW - marginX;
+        const blockH = h * 0.75;
+        const blockY = (h - blockH) / 2;
+
+        // Substrate Rock Block
+        ctx.fillStyle = '#334155';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(blockStartX, blockY, blockW, blockH, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Rock texture veins
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.lineWidth = 1.5;
+        for (let v = 0; v < 4; v++) {
+          ctx.beginPath();
+          ctx.moveTo(blockStartX + v * (blockW / 4) + 20, blockY);
+          ctx.bezierCurveTo(blockStartX + v * (blockW / 4) + 40, cy - 20, blockStartX + v * (blockW / 4), cy + 40, blockStartX + v * (blockW / 4) + 60, blockY + blockH);
+          ctx.stroke();
+        }
+
+        // Substrate Label
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 11px Inter';
+        ctx.textAlign = 'left';
+        ctx.fillText(`SUBSTRATE: MOHS 4 (BENCHMARK 295 RPM = 5.0 min @ 800mm)`, blockStartX + 14, blockY + 22);
+
+        // Penetration Depth calculation
+        const depthRatio = Math.min(1.0, simulatedDrilledDepth / params.targetDepth);
+        const maxHolePixel = blockW * 0.85;
+        const currentHolePixel = depthRatio * maxHolePixel;
+
+        const holeThickness = Math.min(48, Math.max(16, (params.drillDia / 19) * 26));
+        ctx.fillStyle = '#090d16';
+        ctx.beginPath();
+        ctx.fillRect(blockStartX, cy - holeThickness / 2, currentHolePixel, holeThickness);
+
+        // Target Line
+        const targetX = blockStartX + maxHolePixel;
+        ctx.strokeStyle = '#ef4444';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(targetX, blockY + 30);
+        ctx.lineTo(targetX, blockY + blockH - 10);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '10px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${params.targetDepth}mm`, targetX, blockY + blockH - 14);
+
+        // Drill Bit
+        const bitTipX = blockStartX + currentHolePixel;
+        const bitShaftLength = blockStartX - marginX + currentHolePixel;
+        const bitX0 = marginX;
+
+        // Chuck
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2;
+        ctx.fillRect(bitX0 - 20, cy - 22, 45, 44);
+        ctx.strokeRect(bitX0 - 20, cy - 22, 45, 44);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '9px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(`CHUCK`, bitX0 + 2, cy - 26);
+
+        // Fluted Shaft
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(bitX0 + 25, cy - holeThickness / 2 + 2, bitShaftLength - 25, holeThickness - 4);
+        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeRect(bitX0 + 25, cy - holeThickness / 2 + 2, bitShaftLength - 25, holeThickness - 4);
+
+        const flutePitch = 24;
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2;
+        const fluteOffset = (spindleAngleDeg / 360) * flutePitch;
+        for (let fx = bitX0 + 30 + fluteOffset; fx < bitTipX - 10; fx += flutePitch) {
+          ctx.beginPath();
+          ctx.moveTo(fx, cy - holeThickness / 2 + 2);
+          ctx.lineTo(fx + flutePitch * 0.6, cy + holeThickness / 2 - 2);
+          ctx.stroke();
+        }
+
+        // Bit Tip
+        ctx.fillStyle = '#f59e0b';
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bitTipX - 8, cy - holeThickness / 2);
+        ctx.lineTo(bitTipX + 6, cy);
+        ctx.lineTo(bitTipX - 8, cy + holeThickness / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 10px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Ø${params.drillDia}mm`, bitTipX - 2, cy - holeThickness / 2 - 6);
+
+        if (depthRatio < 1.0 && isPlaying) {
+          triggerRockChips(bitTipX, cy);
+        }
+
+        for (let i = rockChips.length - 1; i >= 0; i--) {
+          const rc = rockChips[i];
+          rc.x += rc.vx;
+          rc.y += rc.vy;
+          rc.life -= dt * 2.2;
+          if (rc.life <= 0) {
+            rockChips.splice(i, 1);
+            continue;
+          }
+          ctx.fillStyle = rc.color;
+          ctx.globalAlpha = rc.life;
+          ctx.fillRect(rc.x, rc.y, rc.size, rc.size);
+          ctx.globalAlpha = 1.0;
+        }
+
+        document.getElementById('status-contact').textContent = `Drilled: ${simulatedDrilledDepth.toFixed(1)}mm / ${params.targetDepth}mm (${Math.round(depthRatio * 100)}%)`;
+        document.getElementById('status-contact').className = 'font-mono-num text-emerald-400 font-medium';
+        document.getElementById('canvas-status-tag').textContent = `Penetrating: ${(results.rop_mm_per_min / 10).toFixed(1)} cm/min`;
+
+        // Progress bar
+        const pBarY = blockY + blockH - 24;
+        const pBarW = blockW - 28;
+        const pBarX = blockStartX + 14;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.fillRect(pBarX, pBarY, pBarW, 10);
+        ctx.fillStyle = depthRatio >= 1.0 ? '#10b981' : '#3b82f6';
+        ctx.fillRect(pBarX, pBarY, pBarW * depthRatio, 10);
+        ctx.strokeStyle = '#334155';
+        ctx.strokeRect(pBarX, pBarY, pBarW, 10);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '10px JetBrains Mono';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Depth: ${simulatedDrilledDepth.toFixed(0)} mm / ${params.targetDepth} mm | Elapsed: ${Math.floor(simulatedElapsedSec / 60)}m ${Math.round(simulatedElapsedSec % 60)}s`, pBarX, pBarY - 6);
+      }
+
+      requestAnimationFrame(renderAnimation);
+    }
+
+    function attachEventListeners() {
+      // 4 Gearbox Presets Buttons
+      GEARBOX_SETTINGS.forEach(g => {
+        const btn = document.getElementById(`btn-gear-${g.rpm}`);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            setGearboxSpeed(g.rpm, g.torque);
+          });
+        }
+      });
+
+      // Spring Presets
+      SPRING_PRESETS.forEach(sp => {
+        const btn = document.getElementById(`btn-spring-${sp}`);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            setSpringStiffness(sp);
+          });
+        }
+      });
+
+      // Drill bit presets (19 vs 21 mm)
+      document.getElementById('btn-bit-19').addEventListener('click', () => {
+        setDrillBit(19);
+      });
+      document.getElementById('btn-bit-21').addEventListener('click', () => {
+        setDrillBit(21);
+      });
+
+      // View mode toggles
+      const btnMech = document.getElementById('view-mode-mechanism');
+      const btnDrill = document.getElementById('view-mode-drilling');
+
+      btnMech.addEventListener('click', () => {
+        viewMode = 'mechanism';
+        btnMech.className = 'px-2.5 py-1 rounded text-xs font-medium text-slate-200 bg-slate-700 shadow-sm transition';
+        btnDrill.className = 'px-2.5 py-1 rounded text-xs font-medium text-slate-400 hover:text-white transition';
+      });
+
+      btnDrill.addEventListener('click', () => {
+        viewMode = 'drilling';
+        btnDrill.className = 'px-2.5 py-1 rounded text-xs font-medium text-slate-200 bg-slate-700 shadow-sm transition';
+        btnMech.className = 'px-2.5 py-1 rounded text-xs font-medium text-slate-400 hover:text-white transition';
+      });
+
+      // Restart Drill Simulation
+      document.getElementById('btn-reset-drill-sim').addEventListener('click', () => {
+        simulatedDrilledDepth = 0;
+        simulatedElapsedSec = 0;
+      });
+
+      // Inputs array
+      const inputs = [
+        { sliderId: 'inp-rpm', numId: 'num-rpm', key: 'rpm', type: 'float' },
+        { sliderId: 'inp-shaft-torque', numId: 'num-shaft-torque', key: 'shaftTorque', type: 'float' },
+        { sliderId: 'inp-hits', numId: 'num-hits', key: 'hits', type: 'int' },
+        { sliderId: 'inp-mass', numId: 'num-mass', key: 'mass', type: 'float' },
+        { sliderId: 'inp-k', numId: 'num-k', key: 'k', type: 'float' },
+        { sliderId: 'inp-preload', numId: 'num-preload', key: 'preload', type: 'float' },
+        { sliderId: 'inp-stroke', numId: 'num-stroke', key: 'stroke', type: 'float' },
+        { sliderId: 'inp-angle', numId: 'num-angle', key: 'angle', type: 'float' },
+        { sliderId: 'inp-efficiency', numId: 'num-efficiency', key: 'efficiency', type: 'percent' },
+        { sliderId: 'inp-diameter', numId: 'num-diameter', key: 'diameter', type: 'float' },
+        { sliderId: 'inp-lead', numId: 'num-lead', key: 'lead', type: 'float' },
+        { sliderId: 'inp-friction', numId: 'num-friction', key: 'friction', type: 'float' },
+        { sliderId: 'inp-drill-dia', numId: 'num-drill-dia', key: 'drillDia', type: 'float' },
+        { sliderId: 'inp-target-depth', numId: 'num-target-depth', key: 'targetDepth', type: 'float' }
+      ];
+
+      inputs.forEach(item => {
+        const sliderEl = document.getElementById(item.sliderId);
+        const numEl = document.getElementById(item.numId);
+
+        const handleInput = (rawVal) => {
+          let val = parseFloat(rawVal);
+          if (isNaN(val)) return;
+          if (item.type === 'int') val = Math.round(val);
+          if (item.type === 'percent') val = val / 100;
+          params[item.key] = val;
+
+          if (item.key === 'stroke' || item.key === 'hits') {
+            params.lead = params.stroke * params.hits;
+            const leadNum = document.getElementById('num-lead');
+            const leadSlider = document.getElementById('inp-lead');
+            if (leadNum) leadNum.value = params.lead;
+            if (leadSlider) leadSlider.value = params.lead;
+          }
+
+          calculateMechanics();
+        };
+
+        if (sliderEl) sliderEl.addEventListener('input', (e) => handleInput(e.target.value));
+        if (numEl) {
+          numEl.addEventListener('input', (e) => handleInput(e.target.value));
+          numEl.addEventListener('change', (e) => handleInput(e.target.value));
+        }
+      });
+
+      // Play / Pause
+      document.getElementById('btn-toggle-anim').addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        const icon = document.getElementById('anim-icon');
+        const label = document.getElementById('anim-btn-label');
+        if (isPlaying) {
+          icon.setAttribute('data-lucide', 'pause');
+          label.textContent = 'Pause';
+        } else {
+          icon.setAttribute('data-lucide', 'play');
+          label.textContent = 'Play';
+        }
+        lucide.createIcons();
+      });
+
+      // Slow-mo
+      document.getElementById('chk-slowmo').addEventListener('change', (e) => {
+        slowMo = e.target.checked;
+      });
+
+      // Reset Button
+      document.getElementById('btn-reset-params').addEventListener('click', () => {
+        params.rpm = 295;
+        params.shaftTorque = 145;
+        params.hits = 3;
+        params.mass = 0.60;
+        params.k = 56;
+        params.preload = 10;
+        params.stroke = 15;
+        params.angle = 0;
+        params.efficiency = 0.80;
+        params.diameter = 82;
+        params.lead = 45;
+        params.friction = 0.10;
+        params.drillDia = 19;
+        params.targetDepth = 800;
+
+        simulatedDrilledDepth = 0;
+        simulatedElapsedSec = 0;
+
+        calculateMechanics();
+      });
+
+      // Export Comprehensive CSV
+      document.getElementById('btn-export-csv').addEventListener('click', () => {
+        const rows = [
+          ["--- ROTARY HAMMER 4-GEARBOX PENETRATION REPORT ---"],
+          ["Benchmark Calibration", "295 RPM, 56 N/mm, Ø19mm bit = 800mm in 5.0 min (300s)"],
+          ["Target Drilling Depth", params.targetDepth, "mm"],
+          ["Mean Jaw Diameter", params.diameter, "mm"],
+          ["Jaw Height / Compression Stroke", params.stroke, "mm"],
+          ["Active Spring Stiffness", params.k, "N/mm"],
+          ["Active Drill Bit Diameter", params.drillDia, "mm"],
+          [],
+          ["--- 4 GEARBOX SPEEDS VS TIME TO 800MM ---"],
+          ["Spindle Speed (RPM)", "Shaft Torque (Nm)", "Blow Frequency (/min)", "Time (36 N/mm, Ø19)", "Time (56 N/mm, Ø19)", "Time (80 N/mm, Ø19)", "Time (56 N/mm, Ø21)", "Stall Margin"],
+        ];
+
+        GEARBOX_SETTINGS.forEach(g => {
+          const r36_19 = computeForState(g.rpm, 36, 19);
+          const r56_19 = computeForState(g.rpm, 56, 19);
+          const r80_19 = computeForState(g.rpm, 80, 19);
+          const r56_21 = computeForState(g.rpm, 56, 21);
+          const margin = (g.torque / r56_19.jaw_torque).toFixed(1) + "x";
+          rows.push([g.rpm, g.torque, g.rpm * 3, r36_19.time_str, r56_19.time_str, r80_19.time_str, r56_21.time_str, margin]);
+        });
+
+        rows.push([]);
+        rows.push(["--- ACTIVE CONFIGURATION METRICS ---"]);
+        rows.push(["Selected RPM", params.rpm, "RPM"]);
+        rows.push(["Available Shaft Torque", params.shaftTorque, "Nm"]);
+        rows.push(["Peak Jaw Cam Torque", results.jaw_torque.toFixed(2), "Nm"]);
+        rows.push(["Torque Stall Margin", `${results.stall_margin.toFixed(2)}x`]);
+        rows.push(["Rate of Penetration", results.rop_mm_per_min.toFixed(2), "mm/min"]);
+        rows.push(["Time to Drill 800 mm", results.time_str, `(${results.time_seconds.toFixed(1)}s)`]);
+        rows.push(["Advance per Revolution", results.advance_per_rev.toFixed(3), "mm/rev"]);
+        rows.push(["Advance per Blow", results.advance_per_blow.toFixed(3), "mm/blow"]);
+
+        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `rotary_hammer_${params.rpm}rpm_dia${params.drillDia}_800mm.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    }
+
+    // App Initialization
+    window.onload = function() {
+      resizeCanvas();
+      initCharts();
+      attachEventListeners();
+      calculateMechanics();
+      requestAnimationFrame(renderAnimation);
+    };
+  </script>
+</body>
+</html>
